@@ -77,7 +77,7 @@ int main (int argc, char *argv[]) {
 	    		printf("%c", t);
 	    		i++;
 	    	}else {
-	    		printf("%c", t);
+	    		printf(" ");
 	    		i = 0;
 	    	}
 	    	
