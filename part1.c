@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <string.h>
 
 int main (int argc, char *argv[]) {
 
@@ -33,8 +33,10 @@ int main (int argc, char *argv[]) {
 	}else {
     	//File opened succussfully
     	char t;
-    	char message[4] = "Hell";
+    	char message[4] = "wipe";
     	int i = 0;
+
+    	printf("\nCipher text: \n");
     	while((t = fgetc(fin)) != EOF) {
 	   
 	    	//Read in char from file
@@ -55,34 +57,28 @@ int main (int argc, char *argv[]) {
 	    		}
 
 	    	} else {
-	    		//Symbol
-	    		t = ' ';
+	    		//Discard
+	    		t = '\0';
 	    	}
-	    	/*
-	    	if(i >= 0 && i <= 4) {
-	    		//printf("%c", t);
-	    		message[i] = t;
-	    		i++;
-	    	}else {
-	    		printf("%s", message);
-	    		for(int l = 0; l < 5; l++) {
-	    			message[l] = 'A';
-	    		}
-	    		i = 0;
-	    	}
-	    	*/
-	    	
-	    	
-	    	if(i <= 4 && i >= 0 && t != ' ') {
+
+	    	if(i <= 4 && i >= 0) {
+	    		
 	    		printf("%c", t);
 	    		i++;
 	    	}else {
-	    		printf(" ");
+	    		//printf(" ");
 	    		i = 0;
-	    	}
-	    	
-
+	    	}	
 	    }
+
+	    //Navigate back to start of file
+	    rewind(fin);
+	    printf("\n\nPlain text: \n");
+	    while((t = fgetc(fin)) != EOF) {
+	    	printf("%c", t);
+	    }
+
+
 	}
 
 
