@@ -25,60 +25,40 @@ int main (int argc, char *argv[]) {
 
 	//Create file object and open file
 	FILE *fin;
+	long textSize;
+	char *testBuffer;
 
-	if((fin = fopen(filename, "r")) == NULL) {
+	if((fin = fopen(filename, "rb")) == NULL) {
 		//File didn't open succussfully
 		perror("File opening failed");
 		return EXIT_FAILURE;
 	}else {
-    	//File opened succussfully
-    	char t;
-    	char message[4] = "wipe";
-    	int i = 0;
+		char t;
 
-    	printf("\nCipher text: \n");
-    	while((t = fgetc(fin)) != EOF) {
-	   
-	    	//Read in char from file
-	    	if(t >= 'a' && t <= 'z') {
-	    		//Lowercase letter
-	    		t = t + key;
+		//Output plain text
+		printf("\n\nPlain text: \n");
+		while ((t = fgetc(fin)) != EOF) {
+			printf("%c", t);
+		}
 
-	    		if(t > 'z') {
-	    			t = t - 'z' + 'a' - 1;
-	    		}
-	    		
-	    	}else if (t >= 'A' && t <= 'Z') {
-	    		//Uppercase letter
-	    		t = t + key;
+		//Navigate back to start of file
+		rewind(fin);
 
-	    		if(t > 'Z') {
-	    			t = t - 'Z' + 'A' - 1;
-	    		}
+		fseek(fin, 0L, SEEK_END);
+		textSize = ftell(fin);
 
-	    	} else {
-	    		//Discard
-	    		t = '\0';
-	    	}
+		//Allocate memory for text
+		testBuffer = calloc(1, textSize + 1);
+		if (!testBuffer) {
+			fclose(fin);
+			//handle_error("Memory allocation failed");
+		}
 
-	    	if(i <= 4 && i >= 0) {
-	    		
-	    		printf("%c", t);
-	    		i++;
-	    	}else {
-	    		//printf(" ");
-	    		i = 0;
-	    	}	
-	    }
+		//Copy the file into the buffer
+		fread(testBuffer, textSize, 1, fin);
 
-	    //Navigate back to start of file
-	    rewind(fin);
-	    printf("\n\nPlain text: \n");
-	    while((t = fgetc(fin)) != EOF) {
-	    	printf("%c", t);
-	    }
-
-
+		printf("\n\nCipher Text: \n");
+		printf("%s", testBuffer);
 	}
 
 
