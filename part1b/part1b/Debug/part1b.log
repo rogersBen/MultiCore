@@ -1,0 +1,6 @@
+﻿  Source.c
+c:\users\ben\source\repos\part1b\part1b\source.c(334): warning C4996: 'clCreateCommandQueue': was declared deprecated
+  c:\program files (x86)\amd app sdk\3.0\include\cl\cl.h(1359): note: see declaration of 'clCreateCommandQueue'
+c:\users\ben\source\repos\part1b\part1b\source.c(136): warning C4101: 'queue': unreferenced local variable
+  part1b.vcxproj -> C:\Users\Ben\source\repos\part1b\Debug\part1b.exe
+  part1b.vcxproj -> C:\Users\Ben\source\repos\part1b\Debug\part1b.pdb (Partial PDB)

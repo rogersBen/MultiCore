@@ -47,6 +47,8 @@ int main (int argc, char *argv[]) {
 		fseek(fin, 0L, SEEK_END);
 		textSize = ftell(fin);
 
+		rewind(fin);
+
 		//Allocate memory for text
 		testBuffer = calloc(1, textSize + 1);
 		if (!testBuffer) {
