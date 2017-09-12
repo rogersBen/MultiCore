@@ -2,14 +2,14 @@
 Student Name:		Benjamin Rogers
 Student Number:		4503600
 Student Login:		bjr342
-File Description:	CSCI376 Assignment 2 Part 1b
+File Description:	CSCI376 Assignment 2 Part 1c
 */
 
 #define _CRT_SECURE_NO_WARNINGS
 #define FILE_NAME "plaintext.txt"
 #define MAX_FILE_LENGTH 30000	
-#define PROGRAM_FILE "cipherB.cl"
-#define KERNEL_FUNC_ENCRYPT "cipherB"
+#define PROGRAM_FILE "cipherC.cl"
+#define KERNEL_FUNC_ENCRYPT "cipherC"
 #define KERNEL_FUNC_DECRYPT "decrypt"
 
 
@@ -69,7 +69,7 @@ cl_program build_program(cl_context ctx, cl_device_id dev, const char* filename)
 	size_t program_size, log_size;
 	int err;
 
-	
+
 	program_handle = fopen(filename, "r");
 	if (program_handle == NULL) {
 		perror("Couldn't find the program file");
@@ -109,22 +109,25 @@ cl_program build_program(cl_context ctx, cl_device_id dev, const char* filename)
 }
 
 int main() {
-/////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////
 	//OpenCL data structures
 	cl_device_id device;
 	cl_context context;
 	cl_command_queue queue;
 	cl_program program;
-	cl_kernel kernel[2]; 
+	cl_kernel kernel[2];
 
-	int err, aChar, key;
+	//Utility data structures
+	int err, aChar;
 	int i = 0;
 	int j = 0;
 	FILE *fin; //File pointer
-	unsigned int fileSize;
+	unsigned int fileSize, numShift;
+	int keyValues[4];
 
+	//Global and local size
 	size_t global_size = MAX_FILE_LENGTH;
-	size_t local_size = 6;
+	size_t local_size; //Number of shift values
 
 	//Arrays to hold text
 	char inputText[MAX_FILE_LENGTH];
@@ -137,14 +140,30 @@ int main() {
 	cl_mem inputTextBuffer;
 	cl_mem encryptedTextBuffer;
 	cl_mem plainTextBuffer;
+	cl_mem keyValuesBuffer;
+	//Maybe one more?
 
-/////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////
 
-	//Get key
-	printf("Key: ");
-	while (scanf("%d", &key) != 1) {
+	//Get number of key values to be used
+	printf("Number of key values: ");
+	while(scanf("%d", &numShift) != 1 || numShift > 4 || numShift < 1) {
+		if (numShift > 4 || numShift < 1) {
+			printf("\nInvalid input");
+		}
 		while ((i = getchar()) != EOF && i != '\n');
-		printf("Invalid input. Please input a valid integer: ");
+	}
+	fseek(stdin, 0, SEEK_END); //Clear buffer
+
+	//Sets local size to the number of shift values
+	local_size = numShift;
+
+	for (int j = 0; j < numShift; j++) {
+		printf("Key: ");
+		while (scanf("%d", &keyValues[j]) != 1) {
+			printf("Invalid input. Please input a valid integer: ");
+			while ((i = getchar()) != EOF && i != '\n');
+		}
 	}
 	fseek(stdin, 0, SEEK_END); //Clear buffer
 
@@ -155,6 +174,7 @@ int main() {
 		return EXIT_FAILURE;
 	}
 	else {
+		//File opened succussfully
 		//Determine filesize by navigating to the end of the file
 		fseek(fin, 0, SEEK_END);
 		fileSize = ftell(fin);
@@ -170,14 +190,15 @@ int main() {
 		rewind(fin);
 
 		//Read in a character until end of file is reached
-		for (i = 1; (aChar = fgetc(fin)) != EOF; i++) {								
-			
+		for (i = 1; (aChar = fgetc(fin)) != EOF; i++) {
+
 			//If character is a letter
-			if ((aChar >= 'a' && aChar <= 'z') || (aChar >= 'A' && aChar <= 'Z')) {		
+			if ((aChar >= 'a' && aChar <= 'z') || (aChar >= 'A' && aChar <= 'Z')) {
 				inputText[i - 1] = (char)aChar; //Add to inputText
-			} else {
+			}
+			else {
 				//Not a letter, maintain count
-				i--;	
+				i--;
 			}
 		}
 
@@ -185,15 +206,14 @@ int main() {
 		inputText[i - 1] = '\0';
 
 		//Determine size of text to be encrypted
-		fileSize = strlen(inputText);	
+		fileSize = strlen(inputText);
 
 	}
-
 
 	//All information has been read by the program so it can close the file
 	fclose(fin);
 
-/////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////
 
 	//Create a device and a context						
 	device = create_device();
@@ -206,34 +226,57 @@ int main() {
 	program = build_program(context, device, PROGRAM_FILE);
 
 	//Create kernel for encryption
-	kernel[0] = clCreateKernel(program, KERNEL_FUNC_ENCRYPT, &err);
+	kernel[0] = clCreateKernel(program, 
+		KERNEL_FUNC_ENCRYPT, //Kernel name
+		&err); //Errorcode return
 	if (err < 0) {
 		handle_error("Couldn't create a kernel");
 	}
 
 	//Create kernel for decryption
-	kernel[1] = clCreateKernel(program, KERNEL_FUNC_DECRYPT, &err);
+	kernel[1] = clCreateKernel(program, 
+		KERNEL_FUNC_DECRYPT, //Kernel name 
+		&err); //Error code return
 	if (err < 0) {
 		handle_error("Couldn't create a kernel");
 	}
 
-/////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////
 
 	//Create buffer for the input text
-	inputTextBuffer = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(inputText), inputText, &err);
+	inputTextBuffer = clCreateBuffer(context, 
+		CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, //flags, read only and copy memory to pointer
+		sizeof(inputText), //size in bytes of the buffer memory object to be allocated
+		inputText, //pointer to the buffer data
+		&err); //error code return
 	if (err < 0) {
-		perror("Couldn't create a buffer");
+		handle_error("Couldn't create inputText buffer");
+	}
+
+	//Create buffer for keyValues
+	keyValuesBuffer = clCreateBuffer(context, 
+		CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, //flags, read only and copy memory to pointer
+		sizeof(int) * 4, //size of buffer memory object to be allocated
+		keyValues, //buffer data
+		&err); //error code return
+	if (err < 0) {
+		handle_error("Couldn't create key values buffer");
 	}
 
 	//Create buffer for the encrypted text
-	encryptedTextBuffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(encryptedText), NULL, &err);
+	encryptedTextBuffer = clCreateBuffer(context, 
+		CL_MEM_WRITE_ONLY, //flags, write only means will be written but not read by kernel
+		sizeof(encryptedText),  //size of memory to be allocated
+		NULL, //buffer data
+		&err); //error code
 	if (err < 0) {
-		perror("Couldn't create a buffer");
+		handle_error("Couldn't create encryptedText buffer");
 	}
 
 	//Set kernel arguments
+	//kernel, argument index, argument size and argument value
 	err = clSetKernelArg(kernel[0], 0, sizeof(unsigned int), &fileSize); //size
-	err |= clSetKernelArg(kernel[0], 1, sizeof(int), &key); //key
+	err |= clSetKernelArg(kernel[0], 1, sizeof(cl_mem), &keyValuesBuffer); //key values
 	err |= clSetKernelArg(kernel[0], 2, sizeof(cl_mem), &inputTextBuffer); //input text
 	err |= clSetKernelArg(kernel[0], 3, sizeof(cl_mem), &encryptedTextBuffer); //encrypted text
 	if (err < 0) {
@@ -241,7 +284,10 @@ int main() {
 	}
 
 	//Create command queue
-	queue = clCreateCommandQueue(context, device, 0, &err);
+	queue = clCreateCommandQueue(context, //valid openCL context
+		device, //device associated with context
+		0,  //properties, can specify properties for the command queue
+		&err); //error code return
 	if (err < 0) {
 		handle_error("Couldn't create a command queue");
 	}
@@ -249,37 +295,54 @@ int main() {
 
 	//Enqueue kernel
 	//Uses clEnqueueNDRangeKernel as this will perform it on all of the data
-	err = clEnqueueNDRangeKernel(queue, kernel[0], 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+	err = clEnqueueNDRangeKernel(queue, //command queue
+		kernel[0], //kernel object
+		1, //one-dimensional, work dimensions
+		NULL, &global_size, &local_size, //global work offset, global work size, local work size
+		0, NULL, NULL); //num events in wait list, event wait list, event
 	if (err < 0) {
 		handle_error("Couldn't enqueue the kernel");
 	}
 
-/////////////////////////////////////////////////////////////////////////////////
-	
+	/////////////////////////////////////////////////////////////////////////////////
+
 	//Enqueue command to read from buffer
-	err = clEnqueueReadBuffer(queue, encryptedTextBuffer, CL_TRUE, 0, sizeof(encryptedText), &encryptedText, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(queue, //command queue
+		encryptedTextBuffer, //buffer
+		CL_TRUE, //blocking read, indicates if read operations are blovking or non
+		0, sizeof(encryptedText), &encryptedText, //offset, size in bytes of data being read, pointer to buffer
+		0, NULL, NULL); //event stuff
 	if (err < 0) {
 		handle_error("Couldn't read the buffer");
 	}
 
 	//Create buffer for encrypted text
-	encryptedTextBuffer = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(encryptedText), encryptedText, &err);
+	encryptedTextBuffer = clCreateBuffer(context, 
+		CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, //flags
+		sizeof(encryptedText), //size in bytes
+		encryptedText, //buffer
+		&err); //error code retunr
 	if (err < 0) {
 		perror("Couldn't create a buffer");
 	}
 
 	//Create buffer for plaintext
-	plainTextBuffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(plainText), NULL, &err);
+	plainTextBuffer = clCreateBuffer(context, 
+		CL_MEM_WRITE_ONLY, //flags
+		sizeof(plainText), //size in bytes
+		NULL, //buffer
+		&err); //errpr
 	if (err < 0) {
 		perror("Couldn't create a buffer");
 	}
 
 	//Set file length, 
-	fileSize = strlen(encryptedText);	
+	fileSize = strlen(encryptedText);
 
 	//Set kernel arguments
+	//kernel, argument index, argument size and argument value
 	err = clSetKernelArg(kernel[1], 0, sizeof(unsigned int), &fileSize);
-	err |= clSetKernelArg(kernel[1], 1, sizeof(int), &key);
+	err |= clSetKernelArg(kernel[1], 1, sizeof(cl_mem), &keyValuesBuffer);
 	err |= clSetKernelArg(kernel[1], 2, sizeof(cl_mem), &encryptedTextBuffer);
 	err |= clSetKernelArg(kernel[1], 3, sizeof(cl_mem), &plainTextBuffer);
 	if (err < 0) {
@@ -287,24 +350,56 @@ int main() {
 	}
 
 	//Enqueue kernel
-	err = clEnqueueNDRangeKernel(queue, kernel[1], 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+	err = clEnqueueNDRangeKernel(queue, //command queue
+		kernel[1], //kernel object
+		1, //work dimensions
+		NULL, &global_size, &local_size, //global work offset, global work size, local work size
+		0, NULL, NULL); //event stuff
 	if (err < 0) {
 		handle_error("Couldn't enqueue the kernel");
 	}
 
-/////////////////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////////////////
 
 	//Enqueue read buffer to get results
-	err = clEnqueueReadBuffer(queue, plainTextBuffer, CL_TRUE, 0, sizeof(plainText), &plainText, 0, NULL, NULL);
+	err = clEnqueueReadBuffer(queue, //command queue
+		plainTextBuffer, //buffer
+		CL_TRUE, //blocking read
+		0, sizeof(plainText), &plainText,  //offset, size in bytes and buffer
+		0, NULL, NULL); //events
 	if (err < 0) {
 		handle_error("Couldn't read the buffer");
 	}
 
 	//Output results
+	int space = 0;
+
+	//Encrypted
 	printf("\n\nEncrypted Text: \n");
-	printf("%s", encryptedText);
+	for (int j = 0; encryptedText[j] != '\0'; j++) {
+		if (space % 5 == 0) {
+			if (space != 0) {
+				printf(" ");
+				space = 0;
+			}
+		}
+		printf("%c", encryptedText[j]);
+		space++;
+	}
+
+	space = 0;
+	//Decrypted
 	printf("\n\nDecrypted text \n");
-	printf("%s\n\n", plainText);
+	for (int j = 0; plainText[j] != '\0'; j++) {
+		if (space % 5 == 0) {
+			if (space != 0) {
+				printf(" ");
+				space = 0;
+			}
+		}
+		printf("%c", plainText[j]);
+		space++;
+	}
 
 
 
